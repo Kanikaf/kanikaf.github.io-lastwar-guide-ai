@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Last War 攻略AI — 管理者画面</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0e0e1a; --bg2:#17172a; --bg3:#1f1f38;
+  --border:rgba(200,169,110,0.18); --border2:rgba(200,169,110,0.35);
+  --gold:#c8a96e; --gold-dim:#9a7e4f;
+  --text:#e8e4db; --text2:#a09880; --text3:#6a6358;
+  --danger:#c84a4a; --success:#4caf7d;
+  --radius:10px; --radius-lg:14px;
+}
+body { font-family:-apple-system,'Helvetica Neue',sans-serif; background:var(--bg); color:var(--text); min-height:100dvh; display:flex; flex-direction:column; }
+
+/* header */
+.header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-bottom:0.5px solid var(--border); background:var(--bg2); flex-shrink:0; position:sticky; top:0; z-index:10; }
+.header-left { display:flex; align-items:center; gap:10px; }
+.logo { width:36px; height:36px; border-radius:var(--radius); background:var(--bg3); border:0.5px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:18px; }
+.app-title { font-size:15px; font-weight:600; color:var(--gold); }
+.badge { font-size:11px; background:rgba(200,169,110,0.15); color:var(--gold-dim); border:0.5px solid var(--border2); border-radius:20px; padding:2px 10px; margin-left:6px; }
+.app-sub { font-size:11px; color:var(--text3); margin-top:1px; display:flex; align-items:center; }
+.status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; }
+.status-dot.ok { background:var(--success); } .status-dot.err { background:var(--danger); } .status-dot.off { background:var(--text3); }
+.back-btn { font-size:13px; color:var(--text2); background:none; border:0.5px solid var(--border); padding:6px 14px; border-radius:var(--radius); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+.back-btn:hover { border-color:var(--border2); color:var(--text); }
+
+/* lock screen */
+#lock-screen { flex:1; display:flex; align-items:center; justify-content:center; }
+.lock-card { background:var(--bg2); border:0.5px solid var(--border2); border-radius:var(--radius-lg); padding:32px; width:min(400px, 90vw); text-align:center; }
+.lock-icon { font-size:40px; margin-bottom:16px; }
+.lock-title { font-size:18px; font-weight:600; color:var(--gold); margin-bottom:8px; }
+.lock-sub { font-size:13px; color:var(--text2); margin-bottom:24px; line-height:1.6; }
+.lock-card input { width:100%; background:var(--bg3); border:0.5px solid var(--border2); color:var(--text); border-radius:var(--radius); padding:12px 16px; font-size:15px; font-family:inherit; letter-spacing:.1em; margin-bottom:12px; }
+.lock-card input:focus { outline:none; border-color:var(--gold-dim); }
+.lock-err { font-size:13px; color:var(--danger); min-height:18px; margin-bottom:12px; }
+.btn-primary { width:100%; padding:12px; border-radius:var(--radius); background:var(--gold); color:var(--bg); border:none; font-size:14px; font-weight:600; cursor:pointer; }
+.btn-primary:hover { opacity:.85; }
+
+/* main content */
+#main-screen { flex:1; display:none; flex-direction:column; }
+.content { flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; gap:24px; max-width:720px; width:100%; margin:0 auto; }
+.content::-webkit-scrollbar { width:4px; }
+.content::-webkit-scrollbar-thumb { background:var(--border2); border-radius:4px; }
+
+.section-title { font-size:12px; font-weight:600; color:var(--gold-dim); letter-spacing:.06em; text-transform:uppercase; margin-bottom:12px; }
+
+/* GAS設定 */
+.gas-row { display:flex; gap:8px; }
+.gas-row input { flex:1; background:var(--bg3); border:0.5px solid var(--border); color:var(--text); border-radius:var(--radius); padding:10px 14px; font-size:13px; font-family:inherit; }
+.gas-row input:focus { outline:none; border-color:var(--border2); }
+.gas-row input::placeholder { color:var(--text3); }
+
+/* chips */
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.chip { display:inline-flex; align-items:center; gap:6px; background:var(--bg3); border:0.5px solid var(--border2); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--text2); }
+.chip button { background:none; border:none; color:var(--text3); cursor:pointer; font-size:15px; line-height:1; padding:0; }
+.chip button:hover { color:var(--danger); }
+
+/* row input */
+.row { display:flex; gap:8px; }
+.row input, .form-input { flex:1; background:var(--bg3); border:0.5px solid var(--border); color:var(--text); border-radius:var(--radius); padding:9px 12px; font-size:13px; font-family:inherit; transition:border-color .15s; }
+.row input:focus, .form-input:focus { outline:none; border-color:var(--border2); }
+.row input::placeholder, .form-input::placeholder { color:var(--text3); }
+
+/* buttons */
+.add-btn { padding:9px 16px; border-radius:var(--radius); background:var(--bg3); color:var(--gold); border:0.5px solid var(--border2); font-size:13px; cursor:pointer; white-space:nowrap; }
+.add-btn:hover { background:var(--bg2); }
+
+/* KB cards */
+.kb-card { background:var(--bg3); border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:12px 14px; display:flex; gap:10px; align-items:flex-start; margin-bottom:8px; transition:border-color .15s; }
+.kb-card:hover { border-color:var(--border2); }
+.kb-card-body { flex:1; min-width:0; }
+.kb-card-title { font-size:14px; font-weight:500; color:var(--text); margin-bottom:4px; }
+.kb-card-preview { font-size:12px; color:var(--text2); line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kb-card-meta { font-size:11px; color:var(--text3); margin-top:6px; }
+.del-btn { background:none; border:none; color:var(--text3); cursor:pointer; font-size:18px; padding:2px; flex-shrink:0; }
+.del-btn:hover { color:var(--danger); }
+
+/* form */
+.form-area { display:flex; flex-direction:column; gap:8px; border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:14px; background:var(--bg2); }
+.form-area textarea { background:var(--bg3); border:0.5px solid var(--border); color:var(--text); border-radius:var(--radius); padding:10px 12px; font-size:13px; resize:vertical; min-height:100px; line-height:1.5; font-family:inherit; }
+.form-area textarea:focus { outline:none; border-color:var(--border2); }
+.form-area textarea::placeholder { color:var(--text3); }
+
+.empty { text-align:center; padding:20px; color:var(--text3); font-size:13px; border:0.5px dashed var(--border2); border-radius:var(--radius); }
+
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg3); border:0.5px solid var(--success); color:var(--success); padding:10px 20px; border-radius:var(--radius); font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:100; }
+.toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">⚔️</div>
+    <div>
+      <div class="app-title">Last War 攻略AI <span class="badge">管理者</span></div>
+      <div class="app-sub">
+        <span class="status-dot off" id="status-dot"></span>
+        <span id="status-text">未接続</span>
+      </div>
+    </div>
+  </div>
+  <a href="index.html" class="back-btn">← チャット画面へ</a>
+</div>
+
+<!-- ロック画面 -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">管理者ログイン</div>
+    <div class="lock-sub">パスワードを入力してください</div>
+    <input type="password" id="pw-input" placeholder="パスワード"
+      onkeydown="if(event.key==='Enter')checkPassword()" />
+    <div class="lock-err" id="pw-err"></div>
+    <button class="btn-primary" onclick="checkPassword()">ログイン</button>
+  </div>
+</div>
+
+<!-- 管理メイン -->
+<div id="main-screen">
+  <div class="content">
+
+    <!-- GAS URL設定 -->
+    <div>
+      <div class="section-title">⚙️ GAS URL 設定</div>
+      <div class="gas-row">
+        <input id="gas-input" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+        <button class="add-btn" onclick="saveGasUrl()">保存・接続</button>
+      </div>
+    </div>
+
+    <!-- 信頼ドメイン -->
+    <div>
+      <div class="section-title">✅ 信頼ドメイン</div>
+      <div class="chips" id="url-chips"></div>
+      <div class="row">
+        <input id="url-input" placeholder="例: lastwar.fandom.com"
+          onkeydown="if(event.key==='Enter')addUrl()" />
+        <button class="add-btn" onclick="addUrl()">追加</button>
+      </div>
+    </div>
+
+    <!-- 知識ベース -->
+    <div>
+      <div class="section-title">📋 知識ベース</div>
+      <div id="kb-list"></div>
+      <div class="form-area" style="margin-top:10px">
+        <input class="form-input" id="kb-title" placeholder="タイトル（例：砂漠の戦場 基本戦略）" />
+        <input class="form-input" id="kb-tag"   placeholder="タグ（例：砂漠,部隊編成）" />
+        <textarea id="kb-text" placeholder="Discordからコピペしたテキストやメモをここに貼り付けてください..."></textarea>
+        <div class="row">
+          <button class="add-btn" onclick="addKb()" style="margin-left:auto">登録する</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  パスワード設定（ここを変更してください）
+// ============================================================
+const ADMIN_PASSWORD = 'bxd720';
+
+// ============================================================
+const DEFAULT_URLS = ['lastwar.fandom.com','lastwar.wiki.gg'];
+let gasUrl      = localStorage.getItem('lw_gas_url') || '';
+let trustedUrls = [];
+let kbEntries   = [];
+let isOnline    = false;
+
+// ---- ログイン -----------------------------------------------
+function checkPassword() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === ADMIN_PASSWORD) {
+    sessionStorage.setItem('lw_admin', '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    document.getElementById('gas-input').value = gasUrl;
+    if (gasUrl) loadFromGas().then(renderAll);
+    else renderAll();
+  } else {
+    document.getElementById('pw-err').textContent = 'パスワードが違います';
+    document.getElementById('pw-input').value = '';
+  }
+}
+
+// セッション維持（再読み込み時もログイン済みなら通す）
+if (sessionStorage.getItem('lw_admin') === '1') {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+  document.getElementById('gas-input').value = gasUrl;
+  if (gasUrl) loadFromGas().then(renderAll);
+  else renderAll();
+}
+
+// ---- GAS通信 ------------------------------------------------
+async function gasGet(params) {
+  const res = await fetch(gasUrl + '?' + new URLSearchParams(params));
+  return res.json();
+}
+
+async function loadFromGas() {
+  try {
+    const [u, k] = await Promise.all([gasGet({action:'getUrls'}), gasGet({action:'getKb'})]);
+    trustedUrls = u.ok && u.data.length ? u.data : [...DEFAULT_URLS];
+    kbEntries   = k.ok ? k.data : [];
+    setStatus(true);
+  } catch(e) {
+    trustedUrls = [...DEFAULT_URLS];
+    kbEntries   = [];
+    setStatus(false);
+  }
+}
+
+function setStatus(ok) {
+  isOnline = ok;
+  document.getElementById('status-dot').className   = 'status-dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('status-text').textContent = ok ? 'GAS接続中' : '未接続';
+}
+
+async function saveGasUrl() {
+  const val = document.getElementById('gas-input').value.trim();
+  if (!val) return;
+  gasUrl = val;
+  localStorage.setItem('lw_gas_url', gasUrl);
+  await loadFromGas();
+  renderAll();
+  toast('GAS URLを保存しました');
+}
+
+// ---- 描画 ---------------------------------------------------
+function renderAll() { renderUrls(); renderKb(); }
+
+function renderUrls() {
+  const chips = document.getElementById('url-chips');
+  chips.innerHTML = trustedUrls.map(u =>
+    `<span class="chip">${esc(u)}<button onclick="removeUrl('${esc(u)}')" title="削除">×</button></span>`
+  ).join('') || '<span style="font-size:13px;color:var(--text3)">登録なし</span>';
+}
+
+function renderKb() {
+  const list = document.getElementById('kb-list');
+  if (kbEntries.length === 0) {
+    list.innerHTML = '<div class="empty">まだメモが登録されていません</div>'; return;
+  }
+  list.innerHTML = kbEntries.map(e => `
+    <div class="kb-card">
+      <div class="kb-card-body">
+        <div class="kb-card-title">${esc(e.title)}</div>
+        <div class="kb-card-preview">${esc(e.text.slice(0,120))}${e.text.length>120?'…':''}</div>
+        <div class="kb-card-meta">${esc(e.date||'')}${e.tag?' · '+esc(e.tag):''}</div>
+      </div>
+      <button class="del-btn" onclick="removeKb('${esc(e.id)}')" title="削除">🗑</button>
+    </div>`).join('');
+}
+
+// ---- URL CRUD -----------------------------------------------
+async function addUrl() {
+  const raw = document.getElementById('url-input').value.trim().replace(/^https?:\/\//,'');
+  if (!raw || trustedUrls.includes(raw)) return;
+  if (isOnline) await gasGet({action:'addUrl', url:raw}).catch(()=>{});
+  document.getElementById('url-input').value = '';
+  await loadFromGas(); renderUrls();
+  toast('ドメインを追加しました');
+}
+
+async function removeUrl(url) {
+  if (!confirm(`"${url}" を削除しますか？`)) return;
+  if (isOnline) await gasGet({action:'deleteUrl', url}).catch(()=>{});
+  await loadFromGas(); renderUrls();
+  toast('削除しました');
+}
+
+// ---- KB CRUD ------------------------------------------------
+async function addKb() {
+  const title = document.getElementById('kb-title').value.trim();
+  const text  = document.getElementById('kb-text').value.trim();
+  const tag   = document.getElementById('kb-tag').value.trim();
+  if (!text) { alert('テキストを入力してください'); return; }
+  if (isOnline) {
+    const r = await gasGet({action:'addKb', title:title||'無題', text, tag}).catch(()=>null);
+    if (r?.ok) { await loadFromGas(); renderKb(); }
+  }
+  document.getElementById('kb-title').value = '';
+  document.getElementById('kb-tag').value   = '';
+  document.getElementById('kb-text').value  = '';
+  toast('知識ベースに登録しました');
+}
+
+async function removeKb(id) {
+  if (!confirm('このメモを削除しますか？')) return;
+  if (isOnline) await gasGet({action:'deleteKb', id}).catch(()=>{});
+  await loadFromGas(); renderKb();
+  toast('削除しました');
+}
+
+// ---- トースト ------------------------------------------------
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = '✅ ' + msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
