@@ -173,12 +173,13 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; background:var(--b
     <div>
       <div class="section-title">🌐 サイト自動クロール</div>
       <div class="crawl-panel">
-        <div class="crawl-site">
-          <div class="crawl-site-icon">📖</div>
-          <div class="crawl-site-info">
-            <div class="crawl-site-name">ラストウォー攻略Wiki — ゲームエイト</div>
-            <div class="crawl-site-url">game8.jp/lastwar-survival</div>
-          </div>
+        <!-- クロール対象サイト一覧 -->
+        <div id="crawl-site-list"></div>
+        <!-- サイト追加フォーム -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="cs-name"    class="form-input" placeholder="サイト名（例：ゲームエイト）" style="flex:1;min-width:140px;" />
+          <input id="cs-url"     class="form-input" placeholder="URL（例：https://game8.jp/lastwar-survival）" style="flex:2;min-width:200px;" />
+          <button class="add-btn" onclick="addCrawlSite()">追加</button>
         </div>
 
         <div>
@@ -274,11 +275,18 @@ async function gasGet(params) {
   const res = await fetch(gasUrl + '?' + new URLSearchParams(params));
   return res.json();
 }
+let crawlSites = [];
+
 async function loadAll() {
   try {
-    const [u, k] = await Promise.all([gasGet({action:'getUrls'}), gasGet({action:'getKb'})]);
+    const [u, k, s] = await Promise.all([
+      gasGet({action:'getUrls'}),
+      gasGet({action:'getKb'}),
+      gasGet({action:'getCrawlSites'})
+    ]);
     trustedUrls = u.ok && u.data.length ? u.data : [...DEFAULT_URLS];
     kbEntries   = k.ok ? k.data : [];
+    crawlSites  = s.ok ? s.data : [];
     setStatus(true);
   } catch(e) { setStatus(false); }
   renderAll();
@@ -424,7 +432,7 @@ function renderLog() {
 }
 
 // ---- 描画 ---------------------------------------------------
-function renderAll() { renderUrls(); renderKb(); }
+function renderAll() { renderUrls(); renderKb(); renderCrawlSites(); }
 
 function renderUrls() {
   const chips = document.getElementById('url-chips');
@@ -495,6 +503,45 @@ async function removeKb(id) {
 }
 
 // ---- ユーティリティ -----------------------------------------
+function renderCrawlSites() {
+  const el = document.getElementById('crawl-site-list');
+  if (!el) return;
+  if (crawlSites.length === 0) {
+    el.innerHTML = '<div class="empty" style="margin-bottom:8px">クロール対象サイトが登録されていません</div>';
+    return;
+  }
+  el.innerHTML = crawlSites.map(s => `
+    <div class="crawl-site-item">
+      <div style="font-size:20px">📖</div>
+      <div class="crawl-site-info">
+        <div class="crawl-site-name">${esc(s.name)}</div>
+        <div class="crawl-site-url">${esc(s.url)}</div>
+      </div>
+      <button class="del-btn" onclick="deleteCrawlSite('${esc(s.id)}')" title="削除">🗑</button>
+    </div>`).join('');
+}
+
+async function addCrawlSite() {
+  const name = document.getElementById('cs-name').value.trim();
+  const url  = document.getElementById('cs-url').value.trim();
+  if (!url) { alert('URLを入力してください'); return; }
+  if (!isOnline) { alert('先にGAS URLを設定・接続してください'); return; }
+  const r = await gasGet({action:'addCrawlSite', name: name||url, url}).catch(()=>null);
+  if (r?.ok) {
+    document.getElementById('cs-name').value = '';
+    document.getElementById('cs-url').value  = '';
+    await loadAll();
+    toast('クロール対象サイトを追加しました');
+  }
+}
+
+async function deleteCrawlSite(id) {
+  if (!confirm('このサイトをクロール対象から削除しますか？')) return;
+  await gasGet({action:'deleteCrawlSite', id}).catch(()=>{});
+  await loadAll();
+  toast('削除しました');
+}
+
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = '✅ ' + msg; el.classList.add('show');
