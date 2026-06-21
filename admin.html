@@ -159,6 +159,16 @@ body { font-family:-apple-system,'Helvetica Neue',sans-serif; background:var(--b
       </div>
     </div>
 
+    <!-- Gemini APIキー -->
+    <div>
+      <div class="section-title">🤖 Gemini API キー設定</div>
+      <div class="gas-row">
+        <input id="gemini-key-input" type="password" placeholder="AIzaSy..." autocomplete="off" />
+        <button class="btn btn-gold" onclick="saveGeminiKey()">保存</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px;" id="gemini-key-status">ステータス確認中...</div>
+    </div>
+
     <!-- クロール -->
     <div>
       <div class="section-title">🌐 サイト自動クロール</div>
@@ -273,6 +283,7 @@ async function loadAll() {
   } catch(e) { setStatus(false); }
   renderAll();
   refreshCrawlStatus();
+  checkGeminiKey();
 }
 function setStatus(ok) {
   isOnline = ok;
@@ -285,6 +296,36 @@ async function saveGasUrl() {
   gasUrl = val; localStorage.setItem('lw_gas_url', gasUrl);
   await loadAll();
   toast('接続しました');
+}
+
+async function saveGeminiKey() {
+  const key = document.getElementById('gemini-key-input').value.trim();
+  if (!key) { alert('APIキーを入力してください'); return; }
+  if (!isOnline) { alert('先にGAS URLを設定・接続してください'); return; }
+  const r = await gasGet({action:'setConfig', key:'GEMINI_API_KEY', value:key}).catch(()=>null);
+  if (r?.ok) {
+    document.getElementById('gemini-key-input').value = '';
+    document.getElementById('gemini-key-status').textContent = '✅ APIキー設定済み';
+    document.getElementById('gemini-key-status').style.color = 'var(--success)';
+    toast('Gemini APIキーを保存しました');
+  } else {
+    toast('保存に失敗しました');
+  }
+}
+
+async function checkGeminiKey() {
+  if (!isOnline) return;
+  try {
+    const r = await gasGet({action:'getConfig', key:'GEMINI_API_KEY'});
+    const el = document.getElementById('gemini-key-status');
+    if (r?.exists) {
+      el.textContent = '✅ APIキー設定済み';
+      el.style.color = 'var(--success)';
+    } else {
+      el.textContent = '⚠️ APIキー未設定 — チャットが動きません';
+      el.style.color = 'var(--danger)';
+    }
+  } catch(e) {}
 }
 
 // ---- クロール -----------------------------------------------
