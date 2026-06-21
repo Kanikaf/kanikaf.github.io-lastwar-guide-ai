@@ -366,10 +366,11 @@ async function runBatch() {
       const r = await gasGet({action:'crawlNext', batch:'5'});
       if (!r.ok) { setLog('❌ ' + r.error); break; }
 
-      addLog(`📄 ${r.processed}件取得 (エラー:${r.errors}) — 残り${r.remaining}件`);
+      const newInfo = r.newUrls > 0 ? ` (新規URL+${r.newUrls}件追加)` : '';
+      addLog(`📄 ${r.processed ?? 0}件取得 (エラー:${r.errors ?? 0}) — 残り${r.remaining ?? 0}件${newInfo}`);
       await refreshCrawlStatus();
 
-      if (r.done || r.remaining === 0) {
+      if (r.remaining === 0 && !r.newUrls) {
         setLog('🎉 クロール完了！知識ベースに登録されました。');
         await loadAll();
         break;
