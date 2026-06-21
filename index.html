@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Last War 攻略AI — BxD Alliance</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0e0e1a;
+  --bg2:      #17172a;
+  --bg3:      #1f1f38;
+  --border:   rgba(200,169,110,0.18);
+  --border2:  rgba(200,169,110,0.35);
+  --gold:     #c8a96e;
+  --gold-dim: #9a7e4f;
+  --text:     #e8e4db;
+  --text2:    #a09880;
+  --text3:    #6a6358;
+  --accent:   #3a6bc8;
+  --danger:   #c84a4a;
+  --radius:   10px;
+  --radius-lg:14px;
+}
+
+body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ---- header ---- */
+.header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 0.5px solid var(--border); background: var(--bg2); flex-shrink: 0; }
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { width: 36px; height: 36px; border-radius: var(--radius); background: var(--bg3); border: 0.5px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.app-title { font-size: 15px; font-weight: 600; color: var(--gold); letter-spacing: 0.02em; }
+.app-sub   { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.tabs { display: flex; gap: 4px; }
+.tab { padding: 6px 14px; border-radius: var(--radius); border: 0.5px solid var(--border); background: transparent; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; }
+.tab:hover { border-color: var(--border2); color: var(--text); }
+.tab.active { background: var(--bg3); border-color: var(--border2); color: var(--gold); }
+
+/* ---- chat view ---- */
+#view-chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.msg { display: flex; gap: 10px; max-width: 88%; animation: fadeUp .2s ease; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+.avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 0.5px solid var(--border); }
+.avatar.ai   { background: var(--bg3); }
+.avatar.user { background: var(--accent); border-color: transparent; }
+
+.bubble { padding: 10px 14px; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.65; border: 0.5px solid var(--border); background: var(--bg2); color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.msg.user .bubble { background: var(--bg3); border-color: var(--border2); }
+.source-tag { font-size: 11px; color: var(--text3); margin-top: 4px; padding-left: 40px; }
+
+.input-row { display: flex; gap: 8px; align-items: flex-end; padding: 10px 16px; border-top: 0.5px solid var(--border); background: var(--bg2); flex-shrink: 0; }
+.input-row textarea {
+  flex: 1; background: var(--bg3); border: 0.5px solid var(--border); color: var(--text);
+  border-radius: var(--radius-lg); padding: 10px 14px; font-size: 14px; resize: none;
+  min-height: 44px; max-height: 120px; line-height: 1.5; font-family: inherit;
+  transition: border-color .15s;
+}
+.input-row textarea:focus { outline: none; border-color: var(--border2); }
+.input-row textarea::placeholder { color: var(--text3); }
+.send-btn { width: 44px; height: 44px; border-radius: var(--radius-lg); border: none; background: var(--gold); color: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; transition: opacity .15s; }
+.send-btn:hover { opacity: 0.85; }
+.send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.typing-dots { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); animation: blink 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
+
+/* ---- kb view ---- */
+#view-kb { flex: 1; overflow-y: auto; display: none; padding: 16px; flex-direction: column; gap: 20px; }
+#view-kb::-webkit-scrollbar { width: 4px; }
+#view-kb::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.section-label { font-size: 12px; font-weight: 600; color: var(--gold-dim); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg3); border: 0.5px solid var(--border2); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--text2); }
+.chip button { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+.chip button:hover { color: var(--danger); }
+
+.row { display: flex; gap: 8px; }
+.row input, .form-input { flex: 1; background: var(--bg3); border: 0.5px solid var(--border); color: var(--text); border-radius: var(--radius); padding: 8px 12px; font-size: 13px; font-family: inherit; transition: border-color .15s; }
+.row input:focus, .form-input:focus { outline: none; border-color: var(--border2); }
+.row input::placeholder, .form-input::placeholder { color: var(--text3); }
+
+.add-btn { padding: 8px 16px; border-radius: var(--radius); background: var(--bg3); color: var(--gold); border: 0.5px solid var(--border2); font-size: 13px; cursor: pointer; white-space: nowrap; transition: background .15s; }
+.add-btn:hover { background: var(--bg2); }
+
+.kb-card { background: var(--bg3); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; transition: border-color .15s; }
+.kb-card:hover { border-color: var(--border2); }
+.kb-card-body { flex: 1; min-width: 0; }
+.kb-card-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.kb-card-preview { font-size: 12px; color: var(--text2); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb-card-meta { font-size: 11px; color: var(--text3); margin-top: 6px; }
+.del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; padding: 2px; flex-shrink: 0; transition: color .15s; }
+.del-btn:hover { color: var(--danger); }
+
+.form-area { display: flex; flex-direction: column; gap: 8px; }
+.form-area textarea { background: var(--bg3); border: 0.5px solid var(--border); color: var(--text); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; resize: vertical; min-height: 90px; line-height: 1.5; font-family: inherit; transition: border-color .15s; }
+.form-area textarea:focus { outline: none; border-color: var(--border2); }
+.form-area textarea::placeholder { color: var(--text3); }
+
+.empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
+
+/* ---- gas config modal ---- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 24px; width: min(480px, 92vw); }
+.modal h2 { font-size: 16px; color: var(--gold); margin-bottom: 6px; }
+.modal p  { font-size: 13px; color: var(--text2); margin-bottom: 16px; line-height: 1.6; }
+.modal input { width: 100%; background: var(--bg3); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 10px 14px; font-size: 14px; font-family: inherit; margin-bottom: 12px; }
+.modal input:focus { outline: none; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-btns button { padding: 8px 20px; border-radius: var(--radius); border: 0.5px solid var(--border2); font-size: 13px; cursor: pointer; }
+.btn-primary { background: var(--gold); color: var(--bg); border-color: var(--gold) !important; font-weight: 600; }
+.btn-ghost   { background: transparent; color: var(--text2); }
+.btn-ghost:hover { background: var(--bg3); }
+
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.status-dot.ok  { background: #4caf7d; }
+.status-dot.err { background: var(--danger); }
+.status-dot.off { background: var(--text3); }
+</style>
+</head>
+<body>
+
+<!-- GAS URL設定モーダル -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <h2>⚙️ GAS URL を設定</h2>
+    <p>Google Apps ScriptのウェブアプリURLを貼り付けてください。<br>知識ベースの共有に使用します。</p>
+    <input id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/AKfycb.../exec" />
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="closeModal()">スキップ（ローカルモード）</button>
+      <button class="btn-primary" onclick="saveGasUrl()">保存して接続</button>
+    </div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">⚔️</div>
+    <div>
+      <div class="app-title">Last War 攻略AI</div>
+      <div class="app-sub">
+        <span class="status-dot off" id="status-dot"></span>
+        <span id="status-text">未接続</span>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chat')" id="tab-chat">チャット</button>
+    <button class="tab" onclick="switchTab('kb')"   id="tab-kb">📚 知識ベース</button>
+    <button class="tab" onclick="openModal()"       id="tab-cfg">⚙️</button>
+  </div>
+</div>
+
+<!-- チャット -->
+<div id="view-chat">
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg">
+      <div class="avatar ai">⚔️</div>
+      <div>
+        <div class="bubble">こんにちは！Last War 攻略AIです。\n\n📌 信頼ソース（公式Wiki・連盟メモ・Discordテキスト）のみを根拠に回答します。\nSNSや掲示板などの未確認情報は使いません。\n\n何でも聞いてください！</div>
+      </div>
+    </div>
+  </div>
+  <div class="input-row">
+    <textarea id="user-input" placeholder="攻略について質問する... (Shift+Enterで改行)" rows="1"
+      oninput="autoResize(this)"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()" title="送信">➤</button>
+  </div>
+</div>
+
+<!-- 知識ベース -->
+<div id="view-kb">
+  <div>
+    <div class="section-label">✅ 信頼ドメイン</div>
+    <div class="chips" id="url-chips"></div>
+    <div class="row">
+      <input id="url-input" placeholder="例: lastwar.fandom.com" onkeydown="if(event.key==='Enter')addUrl()" />
+      <button class="add-btn" onclick="addUrl()">追加</button>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">📋 Discordテキスト / 連盟メモ</div>
+    <div id="kb-list"></div>
+    <div class="form-area" style="margin-top:10px">
+      <input class="form-input" id="kb-title" placeholder="タイトル（例：砂漠の戦場 基本戦略）" />
+      <input class="form-input" id="kb-tag"   placeholder="タグ（例：砂漠,部隊編成）" />
+      <textarea id="kb-text" placeholder="Discordからコピペしたテキストやメモをここに貼り付けてください..."></textarea>
+      <div class="row">
+        <button class="add-btn" onclick="addKb()" style="margin-left:auto">登録する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  設定 — デプロイ後にGAS URLをモーダルまたは直接書き換え
+// ============================================================
+const DEFAULT_URLS = ['lastwar.fandom.com', 'lastwar.wiki.gg'];
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+
+// ============================================================
+//  状態
+// ============================================================
+let gasUrl      = localStorage.getItem('lw_gas_url') || '';
+let trustedUrls = [];
+let kbEntries   = [];
+let chatHistory = [];
+let isOnline    = false;
+
+// ============================================================
+//  起動
+// ============================================================
+(async function init() {
+  if (!gasUrl) { showModal(); return; }
+  await loadFromGas();
+  if (!isOnline) showModal();
+})();
+
+// ============================================================
+//  GAS 通信
+// ============================================================
+async function gasGet(params) {
+  const url = gasUrl + '?' + new URLSearchParams(params);
+  const res  = await fetch(url);
+  return res.json();
+}
+
+async function loadFromGas() {
+  try {
+    const [u, k] = await Promise.all([gasGet({ action: 'getUrls' }), gasGet({ action: 'getKb' })]);
+    trustedUrls = u.ok && u.data.length ? u.data : [...DEFAULT_URLS];
+    kbEntries   = k.ok ? k.data : [];
+    setStatus(true);
+  } catch (e) {
+    trustedUrls = JSON.parse(localStorage.getItem('lw_urls') || 'null') || [...DEFAULT_URLS];
+    kbEntries   = JSON.parse(localStorage.getItem('lw_kb')   || '[]');
+    setStatus(false);
+  }
+}
+
+function setStatus(ok) {
+  isOnline = ok;
+  document.getElementById('status-dot').className  = 'status-dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('status-text').textContent = ok ? 'GAS接続中' : 'ローカルモード';
+}
+
+// ============================================================
+//  モーダル
+// ============================================================
+function showModal() { document.getElementById('modal').style.display = 'flex'; }
+function openModal()  { document.getElementById('gas-url-input').value = gasUrl; showModal(); }
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+  trustedUrls = JSON.parse(localStorage.getItem('lw_urls') || 'null') || [...DEFAULT_URLS];
+  kbEntries   = JSON.parse(localStorage.getItem('lw_kb')   || '[]');
+  renderKb();
+}
+async function saveGasUrl() {
+  const val = document.getElementById('gas-url-input').value.trim();
+  if (!val) return;
+  gasUrl = val;
+  localStorage.setItem('lw_gas_url', gasUrl);
+  document.getElementById('modal').style.display = 'none';
+  await loadFromGas();
+  renderKb();
+}
+
+// ============================================================
+//  タブ切り替え
+// ============================================================
+function switchTab(tab) {
+  document.getElementById('view-chat').style.display = tab === 'chat' ? 'flex' : 'none';
+  document.getElementById('view-kb').style.display   = tab === 'kb'   ? 'flex' : 'none';
+  ['chat','kb'].forEach(t => document.getElementById('tab-' + t).classList.toggle('active', t === tab));
+  if (tab === 'kb') { loadFromGas().then(renderKb); }
+}
+
+// ============================================================
+//  知識ベース UI
+// ============================================================
+function renderKb() {
+  // URL chips
+  const chips = document.getElementById('url-chips');
+  chips.innerHTML = trustedUrls.map(u =>
+    `<span class="chip">${u}<button onclick="removeUrl('${u}')" title="削除">×</button></span>`
+  ).join('') || '<span style="font-size:13px;color:var(--text3)">登録なし</span>';
+
+  // KB cards
+  const list = document.getElementById('kb-list');
+  if (kbEntries.length === 0) {
+    list.innerHTML = '<div class="empty">まだメモが登録されていません</div>'; return;
+  }
+  list.innerHTML = kbEntries.map(e => `
+    <div class="kb-card" style="margin-bottom:8px">
+      <div class="kb-card-body">
+        <div class="kb-card-title">${esc(e.title)}</div>
+        <div class="kb-card-preview">${esc(e.text.slice(0, 100))}${e.text.length > 100 ? '…' : ''}</div>
+        <div class="kb-card-meta">${e.date}${e.tag ? ' · ' + esc(e.tag) : ''}</div>
+      </div>
+      <button class="del-btn" onclick="removeKb('${e.id}')" title="削除">🗑</button>
+    </div>`).join('');
+}
+
+async function addUrl() {
+  const raw = document.getElementById('url-input').value.trim().replace(/^https?:\/\//, '');
+  if (!raw || trustedUrls.includes(raw)) return;
+  trustedUrls.push(raw);
+  document.getElementById('url-input').value = '';
+  if (isOnline) {
+    await gasGet({ action: 'addUrl', url: raw }).catch(() => {});
+  } else {
+    localStorage.setItem('lw_urls', JSON.stringify(trustedUrls));
+  }
+  renderKb();
+}
+
+async function removeUrl(url) {
+  trustedUrls = trustedUrls.filter(u => u !== url);
+  if (isOnline) {
+    await gasGet({ action: 'deleteUrl', url }).catch(() => {});
+  } else {
+    localStorage.setItem('lw_urls', JSON.stringify(trustedUrls));
+  }
+  renderKb();
+}
+
+async function addKb() {
+  const title = document.getElementById('kb-title').value.trim();
+  const text  = document.getElementById('kb-text').value.trim();
+  const tag   = document.getElementById('kb-tag').value.trim();
+  if (!text) return;
+  if (isOnline) {
+    const r = await gasGet({ action: 'addKb', title: title || '無題', text, tag }).catch(() => null);
+    if (r?.ok) await loadFromGas();
+  } else {
+    const entry = { id: 'kb_' + Date.now(), title: title || '無題', text, date: new Date().toLocaleDateString('ja-JP'), tag };
+    kbEntries.unshift(entry);
+    localStorage.setItem('lw_kb', JSON.stringify(kbEntries));
+  }
+  document.getElementById('kb-title').value = '';
+  document.getElementById('kb-tag').value   = '';
+  document.getElementById('kb-text').value  = '';
+  renderKb();
+}
+
+async function removeKb(id) {
+  if (!confirm('このメモを削除しますか？')) return;
+  if (isOnline) {
+    await gasGet({ action: 'deleteKb', id }).catch(() => {});
+    await loadFromGas();
+  } else {
+    kbEntries = kbEntries.filter(e => e.id !== id);
+    localStorage.setItem('lw_kb', JSON.stringify(kbEntries));
+  }
+  renderKb();
+}
+
+// ============================================================
+//  チャット
+// ============================================================
+function appendMsg(role, text, source) {
+  const area    = document.getElementById('chat-messages');
+  const isUser  = role === 'user';
+  const div     = document.createElement('div');
+  div.className = 'msg' + (isUser ? ' user' : '');
+  div.innerHTML = `
+    <div class="avatar ${isUser ? 'user' : 'ai'}">${isUser ? '👤' : '⚔️'}</div>
+    <div>
+      <div class="bubble">${esc(text)}</div>
+      ${source ? `<div class="source-tag">📎 ${esc(source)}</div>` : ''}
+    </div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div.querySelector('.bubble');
+}
+
+function showTyping() {
+  const area = document.getElementById('chat-messages');
+  const div  = document.createElement('div');
+  div.className = 'msg'; div.id = 'typing';
+  div.innerHTML = `<div class="avatar ai">⚔️</div><div class="bubble"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+function removeTyping() { document.getElementById('typing')?.remove(); }
+
+async function sendMsg() {
+  const input = document.getElementById('user-input');
+  const q     = input.value.trim();
+  if (!q) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+
+  appendMsg('user', q);
+  chatHistory.push({ role: 'user', content: q });
+  showTyping();
+
+  const kbCtx = kbEntries.length
+    ? '\n\n【登録済み知識ベース（最優先で参照）】\n' + kbEntries.map(e => `■ ${e.title}${e.tag ? ' [' + e.tag + ']' : ''}\n${e.text}`).join('\n\n---\n')
+    : '';
+
+  const system = `あなたはモバイルゲーム「Last War: Survival」の攻略AIアシスタントです。
+連盟BxD（セクター720）の連盟員向けサービスです。
+
+【必須ルール】
+1. 回答の根拠は以下の信頼ソースのみ使用すること
+   - 信頼ドメイン: ${trustedUrls.join(', ')}
+   - 下記の「登録済み知識ベース」テキスト
+2. Reddit・Twitter/X・YouTube・攻略ブログ・掲示板等のSNS情報は使用しない
+3. 知識ベースの情報は最優先で使用する
+4. 情報が見つからない場合は「信頼できる情報源に該当情報が見つかりませんでした」と正直に答える
+5. 推測・創作は行わない
+6. 回答は日本語で、簡潔かつ実用的に
+7. 箇条書きや見出しを使い読みやすくする${kbCtx}`;
+
+  try {
+    const res  = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 1000,
+        system,
+        messages: chatHistory
+      })
+    });
+    const data  = await res.json();
+    const reply = data.content?.[0]?.text || 'エラーが発生しました。';
+    removeTyping();
+    const src = kbEntries.length ? `知識ベース + ${trustedUrls[0]}` : trustedUrls[0];
+    appendMsg('ai', reply, src);
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (err) {
+    removeTyping();
+    appendMsg('ai', 'APIエラー: ' + err.message);
+  }
+  document.getElementById('send-btn').disabled = false;
+}
+
+// ============================================================
+//  ユーティリティ
+// ============================================================
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
